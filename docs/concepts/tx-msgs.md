@@ -1,6 +1,5 @@
-# Messages and Transactions
-
-## Messages
-
+# Transactions and Messages
 
 ## Transactions
+
+## Messages
