@@ -59,6 +59,15 @@ type BaseReq struct {
 	Simulate      bool         `json:"simulate"`
 }
 
+// HTTPArgs defines a structure of different options that can be set from HTTP querystring.
+type HTTPArgs struct {
+	Tags   []string
+	Page   int
+	Limit  int
+	Newest int
+	Oldest int
+}
+
 // NewBaseReq creates a new basic request instance and sanitizes its values
 func NewBaseReq(
 	from, memo, chainID string, gas, gasAdjustment string, accNumber, seq uint64,
@@ -322,16 +331,15 @@ func PostProcessResponse(w http.ResponseWriter, cliCtx context.CLIContext, resp 
 // ParseHTTPArgsWithLimit parses the request's URL and returns a slice containing
 // all arguments pairs. It separates page and limit used for pagination where a
 // default limit can be provided.
-func ParseHTTPArgsWithLimit(r *http.Request, defaultLimit int) (tags []string, page, limit int, err error) {
-	tags = make([]string, 0, len(r.Form))
+func ParseHTTPArgsWithLimit(r *http.Request, defaultLimit int) (HTTPArgs, error) {
+	args := HTTPArgs{Tags: make([]string, 0, len(r.Form))}
 	for key, values := range r.Form {
-		if key == "page" || key == "limit" {
+		if key == "page" || key == "limit" || key == "newest" || key == "oldest" {
 			continue
 		}
-		var value string
-		value, err = url.QueryUnescape(values[0])
+		value, err := url.QueryUnescape(values[0])
 		if err != nil {
-			return tags, page, limit, err
+			return args, err
 		}
 
 		var tag string
@@ -340,38 +348,69 @@ func ParseHTTPArgsWithLimit(r *http.Request, defaultLimit int) (tags []string, p
 		} else {
 			tag = fmt.Sprintf("%s='%s'", key, value)
 		}
-		tags = append(tags, tag)
+		args.Tags = append(args.Tags, tag)
 	}
 
+	newestStr := r.FormValue("newest")
+	oldestStr := r.FormValue("oldest")
 	pageStr := r.FormValue("page")
-	if pageStr == "" {
-		page = DefaultPage
-	} else {
-		page, err = strconv.Atoi(pageStr)
-		if err != nil {
-			return tags, page, limit, err
-		} else if page <= 0 {
-			return tags, page, limit, errors.New("page must greater than 0")
-		}
-	}
-
 	limitStr := r.FormValue("limit")
-	if limitStr == "" {
-		limit = defaultLimit
+	if newestStr != "" && oldestStr != "" {
+		return args, errors.New("Cannot set both newest and oldest")
+	}
+
+	if (newestStr != "" || oldestStr != "") && (pageStr != "" || limitStr != "") {
+		return args, errors.New("Cannot set newest/oldest with page/limit")
+	}
+
+	if pageStr == "" {
+		args.Page = DefaultPage
 	} else {
-		limit, err = strconv.Atoi(limitStr)
+		page, err := strconv.Atoi(pageStr)
 		if err != nil {
-			return tags, page, limit, err
+			return args, err
+		} else if page <= 0 {
+			return args, errors.New("page must greater than 0")
+		}
+		args.Page = page
+	}
+
+	if limitStr == "" {
+		args.Limit = defaultLimit
+	} else {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			return args, err
 		} else if limit <= 0 {
-			return tags, page, limit, errors.New("limit must greater than 0")
+			return args, errors.New("limit must greater than 0")
 		}
 	}
 
-	return tags, page, limit, nil
+	if newestStr != "" {
+		newest, err := strconv.Atoi(newestStr)
+		if err != nil {
+			return args, err
+		} else if newest <= 0 {
+			return args, errors.New("newest must greater than 0")
+		}
+		args.Newest = newest
+	}
+
+	if oldestStr != "" {
+		oldest, err := strconv.Atoi(newestStr)
+		if err != nil {
+			return args, err
+		} else if oldest <= 0 {
+			return args, errors.New("oldest must greater than 0")
+		}
+		args.Oldest = oldest
+	}
+
+	return args, nil
 }
 
 // ParseHTTPArgs parses the request's URL and returns a slice containing all
 // arguments pairs. It separates page and limit used for pagination.
-func ParseHTTPArgs(r *http.Request) (tags []string, page, limit int, err error) {
+func ParseHTTPArgs(r *http.Request) (HTTPArgs, error) {
 	return ParseHTTPArgsWithLimit(r, DefaultLimit)
 }

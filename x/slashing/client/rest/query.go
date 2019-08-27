@@ -67,7 +67,7 @@ func signingInfoHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 // http request handler to query signing info
 func signingInfoHandlerListFn(cliCtx context.CLIContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, page, limit, err := rest.ParseHTTPArgsWithLimit(r, 0)
+		args, err := rest.ParseHTTPArgsWithLimit(r, 0)
 		if err != nil {
 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
@@ -78,7 +78,7 @@ func signingInfoHandlerListFn(cliCtx context.CLIContext) http.HandlerFunc {
 			return
 		}
 
-		params := types.NewQuerySigningInfosParams(page, limit)
+		params := types.NewQuerySigningInfosParams(args.Page, args.Limit)
 		bz, err := cliCtx.Codec.MarshalJSON(params)
 		if err != nil {
 			rest.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())

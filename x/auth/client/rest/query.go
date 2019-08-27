@@ -75,11 +75,7 @@ func QueryTxsRequestHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 			}
 		}
 
-		var (
-			events      []string
-			txs         []sdk.TxResponse
-			page, limit int
-		)
+		var txs []sdk.TxResponse
 
 		cliCtx, ok := rest.ParseQueryHeightOrReturnBadRequest(w, cliCtx, r)
 		if !ok {
@@ -91,13 +87,13 @@ func QueryTxsRequestHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 			return
 		}
 
-		events, page, limit, err = rest.ParseHTTPArgs(r)
+		args, err := rest.ParseHTTPArgs(r)
 		if err != nil {
 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		searchResult, err := utils.QueryTxsByEvents(cliCtx, events, page, limit)
+		searchResult, err := utils.QueryTxsByEvents(cliCtx, args.Tags, args.Page, args.Limit)
 		if err != nil {
 			rest.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
 			return
